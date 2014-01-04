@@ -22,8 +22,10 @@ void print_indent(int indent)
         printf(" ");
 }
 
-void follow_dir(uint16_t cluster, int indent,
-        uint8_t *image_buf, struct bpb33* bpb)
+/* TODO: Should take a collection 'unusedClusters' of uint16_t. Every time a cluster is part
+ * of a file or is marked as free in the FAT, we remove it from the collection.
+ * The elements left in the collection at the end of this method will then be parts of lost files. */
+void check_lost_files(uint16_t cluster, int indent, uint8_t *image_buf, struct bpb33* bpb)
 {
     struct direntry *dirent;
     int d, i;
@@ -79,7 +81,7 @@ void follow_dir(uint16_t cluster, int indent,
                 print_indent(indent);
                 printf("%s (directory)\n", name);
                 file_cluster = getushort(dirent->deStartCluster);
-                follow_dir(file_cluster, indent+2, image_buf, bpb);
+                check_lost_files(file_cluster, indent+2, image_buf, bpb);
             } else {
                 size = getulong(dirent->deFileSize);
                 print_indent(indent);
@@ -117,7 +119,7 @@ int main(int argc, char** argv)
 
     image_buf = mmap_file(argv[1], &fd);
     bpb = check_bootsector(image_buf);
-    follow_dir(0, 0, image_buf, bpb);
+    check_lost_files(0, 0, image_buf, bpb);
     close(fd);
     exit(0);
 }
