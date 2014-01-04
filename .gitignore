@@ -21,3 +21,8 @@
 *.i*86
 *.x86_64
 *.hex
+
+# os-cw2 Make output
+dos_cp
+dos_ls
+dos_scandisk
