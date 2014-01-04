@@ -16,6 +16,10 @@
 #include "fat.h"
 #include "dos.h"
 
+#ifndef DEBUG
+#define DEBUG
+#endif
+
 
 /* memory map the FAT-12  disk image file */
 uint8_t *mmap_file(char *filename, int *fd)
@@ -42,7 +46,7 @@ uint8_t *mmap_file(char *filename, int *fd)
     /* Step 2: find out how big the disk image file is */
     /* we can use "stat" to do this, by checking the file status */
     if (stat(pathname, &statbuf) < 0) {
-	fprintf(stderr, "Cannot read disk image file %s:\n%s\n", 
+	fprintf(stderr, "Cannot read disk image file %s:\n%s\n",
 		pathname, strerror(errno));
 	exit(1);
     }
@@ -52,7 +56,7 @@ uint8_t *mmap_file(char *filename, int *fd)
     /* Step 3: open the file for read/write */
     *fd = open(pathname, O_RDWR);
     if (*fd < 0) {
-	fprintf(stderr, "Cannot read disk image file %s:\n%s\n", 
+	fprintf(stderr, "Cannot read disk image file %s:\n%s\n",
 		pathname, strerror(errno));
 	exit(1);
     }
@@ -83,10 +87,10 @@ struct bpb33* check_bootsector(uint8_t *image_buf)
 	printf("Good jump inst\n");
 #endif
     } else {
-	fprintf(stderr, "illegal boot sector jump inst: %x%x%x\n", 
-		bootsect->bsJump[0], bootsect->bsJump[1], 
-		bootsect->bsJump[2]); 
-    } 
+	fprintf(stderr, "illegal boot sector jump inst: %x%x%x\n",
+		bootsect->bsJump[0], bootsect->bsJump[1],
+		bootsect->bsJump[2]);
+    }
 
 #ifdef DEBUG
     printf("OemName: %s\n", bootsect->bsOemName);
@@ -99,8 +103,8 @@ struct bpb33* check_bootsector(uint8_t *image_buf)
 	printf("Good boot sector signature\n");
 #endif
     } else {
-	fprintf(stderr, "Boot boot sector signature %x%x\n", 
-		bootsect->bsBootSectSig0, 
+	fprintf(stderr, "Boot boot sector signature %x%x\n",
+		bootsect->bsBootSectSig0,
 		bootsect->bsBootSectSig1);
     }
 
@@ -119,7 +123,7 @@ struct bpb33* check_bootsector(uint8_t *image_buf)
     bpb2->bpbSectors = getushort(bpb->bpbSectors);
     bpb2->bpbFATsecs = getushort(bpb->bpbFATsecs);
     bpb2->bpbHiddenSecs = getushort(bpb->bpbHiddenSecs);
-    
+
 
 #ifdef DEBUG
     printf("Bytes per sector: %d\n", bpb2->bpbBytesPerSec);
@@ -137,16 +141,16 @@ struct bpb33* check_bootsector(uint8_t *image_buf)
 
 /* get_fat_entry returns the value from the FAT entry for
    clusternum. */
-uint16_t get_fat_entry(uint16_t clusternum, 
+uint16_t get_fat_entry(uint16_t clusternum,
 		       uint8_t *image_buf, struct bpb33* bpb)
 {
     uint32_t offset;
     uint16_t value;
     uint8_t b1, b2;
-    
+
     /* this involves some really ugly bit shifting.  This probably
        only works on a little-endian machine. */
-    offset = bpb->bpbResSectors * bpb->bpbBytesPerSec * bpb->bpbSecPerClust 
+    offset = bpb->bpbResSectors * bpb->bpbBytesPerSec * bpb->bpbSecPerClust
 	+ (3 * (clusternum/2));
     switch(clusternum % 2) {
     case 0:
@@ -170,10 +174,10 @@ void set_fat_entry(uint16_t clusternum, uint16_t value,
 {
     uint32_t offset;
     uint8_t *p1, *p2;
-    
+
     /* this involves some really ugly bit shifting.  This probably
        only works on a little-endian machine. */
-    offset = bpb->bpbResSectors * bpb->bpbBytesPerSec * bpb->bpbSecPerClust 
+    offset = bpb->bpbResSectors * bpb->bpbBytesPerSec * bpb->bpbSecPerClust
 	+ (3 * (clusternum/2));
     switch(clusternum % 2) {
     case 0:
@@ -199,7 +203,7 @@ int is_end_of_file(uint16_t cluster) {
     if (cluster >= (FAT12_MASK & CLUST_EOFS)
 	&& cluster <= (FAT12_MASK & CLUST_EOFE)) {
 	return TRUE;
-    } else 
+    } else
 	return FALSE;
 }
 
@@ -209,8 +213,8 @@ int is_end_of_file(uint16_t cluster) {
 uint8_t *root_dir_addr(uint8_t *image_buf, struct bpb33* bpb)
 {
     uint32_t offset;
-    offset = 
-	(bpb->bpbBytesPerSec 
+    offset =
+	(bpb->bpbBytesPerSec
 	 * (bpb->bpbResSectors + (bpb->bpbFATs * bpb->bpbFATsecs)));
     return image_buf + offset;
 }
@@ -218,7 +222,7 @@ uint8_t *root_dir_addr(uint8_t *image_buf, struct bpb33* bpb)
 /* cluster_to_addr returns the memory location where the memory mapped
    cluster actually starts */
 
-uint8_t *cluster_to_addr(uint16_t cluster, uint8_t *image_buf, 
+uint8_t *cluster_to_addr(uint16_t cluster, uint8_t *image_buf,
 			 struct bpb33* bpb)
 {
     uint8_t *p;
@@ -227,7 +231,7 @@ uint8_t *cluster_to_addr(uint16_t cluster, uint8_t *image_buf,
 	/* move to the end of the root directory */
 	p += bpb->bpbRootDirEnts * sizeof(struct direntry);
 	/* move forward the right number of clusters */
-	p += bpb->bpbBytesPerSec * bpb->bpbSecPerClust 
+	p += bpb->bpbBytesPerSec * bpb->bpbSecPerClust
 	    * (cluster - CLUST_FIRST);
     }
     return p;
