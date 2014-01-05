@@ -138,6 +138,24 @@ void check_lost_files(int usedClusters[], uint16_t cluster, uint8_t *image_buf, 
     }
 }
 
+void free_clusters(uint16_t cluster_begin, uint16_t cluster_end, uint8_t *image_buf, struct bpb33* bpb) {
+    uint16_t current_cluster = get_fat_entry(cluster_begin, image_buf, bpb);
+
+    while(1) {
+        uint16_t next_cluster = get_fat_entry(current_cluster, image_buf, bpb);
+
+        set_fat_entry(current_cluster, FAT12_MASK&CLUST_FREE, image_buf, bpb);
+
+        if (current_cluster == cluster_end) {
+            break;
+        }
+
+        current_cluster = next_cluster;
+    }
+
+    set_fat_entry(cluster_begin, FAT12_MASK&CLUST_EOFS, image_buf, bpb);
+}
+
 void check_file_length(uint16_t cluster, uint8_t *image_buf, struct bpb33* bpb)
 {
     struct direntry *dirent;
@@ -201,8 +219,11 @@ void check_file_length(uint16_t cluster, uint8_t *image_buf, struct bpb33* bpb)
                 uint32_t size_clusters = size / bpb->bpbBytesPerSec;
                 uint32_t fat_size = fat_size_clusters * bpb->bpbBytesPerSec;
                 if (size_clusters != fat_size_clusters) {
-                    printf("%s.%s %u %u\n", name, extension, size_clusters, fat_size_clusters);
                     printf("%s.%s %u %u\n", name, extension, size, fat_size);
+                    printf("%s.%s %u %u\n", name, extension, size_clusters, fat_size_clusters);
+
+                    printf("Freeing file beginning at %u from %u to %u", file_cluster_begin, file_cluster_begin + size_clusters, file_cluster_begin + fat_size_clusters);
+                    free_clusters(file_cluster_begin + size_clusters, file_cluster_begin + fat_size_clusters, image_buf, bpb);
                 }
             }
 
