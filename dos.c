@@ -16,9 +16,9 @@
 #include "fat.h"
 #include "dos.h"
 
-#ifndef DEBUG
-#define DEBUG
-#endif
+// #ifndef DEBUG
+// #define DEBUG
+// #endif
 
 
 /* memory map the FAT-12  disk image file */
