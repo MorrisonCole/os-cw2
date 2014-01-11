@@ -51,9 +51,6 @@ void mark_file_clusters_used(int usedClusters[], uint16_t cluster, uint32_t byte
     }
 }
 
-/* TODO: Should take a collection 'unusedClusters' of uint16_t. Every time a cluster is part
- * of a file or is marked as free in the FAT, we remove it from the collection.
- * The elements left in the collection at the end of this method will then be parts of lost files. */
 void check_lost_files(int usedClusters[], uint16_t cluster, uint8_t *image_buf, struct bpb33* bpb)
 {
     // A value of 1 means that the cluster is used somewhere.
