@@ -14,23 +14,17 @@
 #include "fat.h"
 #include "dos.h"
 
-uint16_t get_file_length(uint16_t clusterBegin, uint16_t cluster, uint8_t *image_buf, struct bpb33* bpb)
+uint32_t get_file_length(uint16_t cluster, uint8_t *image_buf, struct bpb33* bpb)
 {
-    int total_clusters;
+    uint32_t length = 1;
 
-    total_clusters = bpb->bpbSectors / bpb->bpbSecPerClust;
-
-    uint16_t next_cluster = get_fat_entry(cluster, image_buf, bpb);
-    if (cluster == 0) {
-        printf("Bad file termination\n");
-        return NULL;
-    } else if (is_end_of_file(next_cluster)) {
-        return cluster - clusterBegin;
-    } else if (cluster > total_clusters) {
-        abort(); /* this shouldn't be able to happen */
+    cluster = get_fat_entry(cluster, image_buf, bpb);
+    while (!is_end_of_file(cluster)) {
+        cluster = get_fat_entry(cluster, image_buf, bpb);
+        length++;
     }
 
-    return get_file_length(clusterBegin, get_fat_entry(cluster, image_buf, bpb), image_buf, bpb);
+    return length;
 }
 
 void mark_file_clusters_used(int usedClusters[], uint16_t cluster, uint32_t bytes_remaining, uint8_t *image_buf, struct bpb33* bpb)
@@ -139,6 +133,7 @@ void check_lost_files(int usedClusters[], uint16_t cluster, uint8_t *image_buf, 
 }
 
 void free_clusters(uint16_t cluster_begin, uint16_t cluster_end, uint8_t *image_buf, struct bpb33* bpb) {
+    printf("free_clusters(%u, %u,...)\n", cluster_begin, cluster_end);
     uint16_t current_cluster = get_fat_entry(cluster_begin, image_buf, bpb);
 
     while(1) {
@@ -154,7 +149,9 @@ void free_clusters(uint16_t cluster_begin, uint16_t cluster_end, uint8_t *image_
     }
 
     set_fat_entry(cluster_begin, FAT12_MASK&CLUST_EOFS, image_buf, bpb);
+    printf("free_clusters complete\n", cluster_begin, cluster_end);
 }
+
 
 void check_file_length(uint16_t cluster, uint8_t *image_buf, struct bpb33* bpb)
 {
@@ -213,17 +210,22 @@ void check_file_length(uint16_t cluster, uint8_t *image_buf, struct bpb33* bpb)
                 check_file_length(file_cluster, image_buf, bpb);
             } else {
                 size = getulong(dirent->deFileSize);
-                uint16_t file_cluster_begin = getushort(dirent->deStartCluster);
-                uint32_t fat_size_clusters = (uint32_t) get_file_length(file_cluster_begin, file_cluster_begin, image_buf, bpb);
+                file_cluster = getushort(dirent->deStartCluster);
+                uint16_t fat_size_clusters = get_file_length(file_cluster, image_buf, bpb);
 
-                uint32_t size_clusters = size / bpb->bpbBytesPerSec;
+                uint32_t size_clusters = (size + (bpb->bpbBytesPerSec - 1)) / bpb->bpbBytesPerSec;
                 uint32_t fat_size = fat_size_clusters * bpb->bpbBytesPerSec;
                 if (size_clusters != fat_size_clusters) {
                     printf("%s.%s %u %u\n", name, extension, size, fat_size);
                     printf("%s.%s %u %u\n", name, extension, size_clusters, fat_size_clusters);
 
-                    printf("Freeing file beginning at %u from %u to %u", file_cluster_begin, file_cluster_begin + size_clusters, file_cluster_begin + fat_size_clusters);
-                    free_clusters(file_cluster_begin + size_clusters, file_cluster_begin + fat_size_clusters, image_buf, bpb);
+                    uint16_t begin_cluster = file_cluster + size_clusters;
+                    uint16_t end_cluster = file_cluster + fat_size_clusters;
+                    printf("begin %u\n", begin_cluster);
+
+                    printf("end %u\n", end_cluster);
+
+                    free_clusters((uint16_t)begin_cluster, (uint16_t)end_cluster, image_buf, bpb);
                 }
             }
 
@@ -404,7 +406,7 @@ int main(int argc, char** argv)
                 printf("Lost File: ");
             }
 
-            uint16_t size = get_file_length(i, i, image_buf, bpb);
+            uint16_t size = get_file_length(i, image_buf, bpb);
             printf("%i %i\n", i, size);
 
             struct direntry *dirent = (struct direntry*) cluster_to_addr(0, image_buf, bpb);
@@ -417,7 +419,7 @@ int main(int argc, char** argv)
 
             create_dirent(dirent, filename, i, size_bytes, image_buf, bpb);
 
-            i += size;
+            check_lost_files(used_clusters, 0, image_buf, bpb);
         }
 
         if (i == total_clusters - 1 && shownPrefix) {
