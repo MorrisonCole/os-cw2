@@ -62,9 +62,10 @@ void check_lost_files(int usedClusters[], uint16_t cluster, uint8_t *image_buf, 
     struct direntry *dirent;
     int d, i;
     dirent = (struct direntry*) cluster_to_addr(cluster, image_buf, bpb);
+    int clust_size = bpb->bpbBytesPerSec * bpb->bpbSecPerClust;
 
     while (1) {
-        for (d = 0; d < bpb->bpbBytesPerSec * bpb->bpbSecPerClust; d += sizeof(struct direntry)) {
+        for (d = 0; d < clust_size; d += sizeof(struct direntry)) {
             char name[9];
             char extension[4];
             uint32_t size;
@@ -156,9 +157,10 @@ void check_file_length(uint16_t cluster, uint8_t *image_buf, struct bpb33* bpb)
     struct direntry *dirent;
     int d, i;
     dirent = (struct direntry*) cluster_to_addr(cluster, image_buf, bpb);
+    int clust_size = bpb->bpbBytesPerSec * bpb->bpbSecPerClust;
 
     while (1) {
-        for (d = 0; d < bpb->bpbBytesPerSec * bpb->bpbSecPerClust; d += sizeof(struct direntry)) {
+        for (d = 0; d < clust_size; d += sizeof(struct direntry)) {
             char name[9];
             char extension[4];
             uint32_t size;
@@ -211,8 +213,8 @@ void check_file_length(uint16_t cluster, uint8_t *image_buf, struct bpb33* bpb)
                 file_cluster = getushort(dirent->deStartCluster);
                 uint16_t fat_size_clusters = get_file_length(file_cluster, image_buf, bpb);
 
-                uint32_t size_clusters = (size + (bpb->bpbBytesPerSec - 1)) / bpb->bpbBytesPerSec;
-                uint32_t fat_size = fat_size_clusters * bpb->bpbBytesPerSec;
+                uint32_t size_clusters = (size + (clust_size - 1)) / clust_size;
+                uint32_t fat_size = fat_size_clusters * clust_size;
                 if (size_clusters != fat_size_clusters) {
                     printf("%s.%s %u %u\n", name, extension, size, fat_size);
 
@@ -370,8 +372,9 @@ int main(int argc, char** argv)
 
     image_buf = mmap_file(argv[1], &fd);
     bpb = check_bootsector(image_buf);
-    // TODO: Need to pass in an array with no. of elements = no. of clusters.
+
     int total_clusters = bpb->bpbSectors / bpb->bpbSecPerClust;
+    int clust_size = bpb->bpbSecPerClust * bpb->bpbBytesPerSec;
     int used_clusters[total_clusters];
     check_lost_files(used_clusters, 0, image_buf, bpb);
 
@@ -380,10 +383,10 @@ int main(int argc, char** argv)
     for (i = 2; i < total_clusters; i++) {
         if (used_clusters[i] == 0 && get_fat_entry(i, image_buf, bpb) != CLUST_FREE) {
             if (!shownPrefix) {
-                printf("Unreferenced: ");
+                printf("Unreferenced:");
                 shownPrefix = 1;
             }
-            printf("%i ", i);
+            printf(" %i", i);
         }
 
         if (i == total_clusters - 1 && shownPrefix) {
@@ -403,7 +406,7 @@ int main(int argc, char** argv)
             printf("%i %i\n", i, size);
 
             struct direntry *dirent = (struct direntry*) cluster_to_addr(0, image_buf, bpb);
-            uint32_t size_bytes = size * bpb->bpbSecPerClust * bpb->bpbBytesPerSec;
+            uint32_t size_bytes = size * clust_size;
 
             const char base[] = "found";
             const char extension[] = ".dat";
