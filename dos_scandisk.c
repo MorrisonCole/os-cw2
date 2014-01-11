@@ -215,7 +215,6 @@ void check_file_length(uint16_t cluster, uint8_t *image_buf, struct bpb33* bpb)
                 uint32_t fat_size = fat_size_clusters * bpb->bpbBytesPerSec;
                 if (size_clusters != fat_size_clusters) {
                     printf("%s.%s %u %u\n", name, extension, size, fat_size);
-                    printf("%s.%s %u %u\n", name, extension, size_clusters, fat_size_clusters);
 
                     uint16_t begin_cluster = file_cluster + size_clusters - 1;
                     uint16_t end_cluster = file_cluster + fat_size_clusters;
